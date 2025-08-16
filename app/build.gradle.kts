@@ -67,6 +67,8 @@ dependencies {
 
     // Coil
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+    implementation(libs.coil.video)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

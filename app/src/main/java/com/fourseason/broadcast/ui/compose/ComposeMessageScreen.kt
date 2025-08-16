@@ -24,8 +24,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
+import coil.decode.ImageDecoderDecoder
+import coil.decode.VideoFrameDecoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +45,14 @@ fun ComposeMessageScreen(
     ) { uri: Uri? ->
         viewModel.onMediaSelected(uri)
     }
+
+    val context = LocalContext.current
+    val imageLoader = ImageLoader.Builder(context)
+        .components {
+            add(VideoFrameDecoder.Factory())
+            add(ImageDecoderDecoder.Factory())
+        }
+        .build()
 
     Scaffold(
         topBar = {
@@ -65,7 +77,10 @@ fun ComposeMessageScreen(
             Spacer(modifier = Modifier.height(8.dp))
             mediaUri?.let { uri ->
                 Image(
-                    painter = rememberAsyncImagePainter(uri),
+                    painter = rememberAsyncImagePainter(
+                        model = uri,
+                        imageLoader = imageLoader
+                    ),
                     contentDescription = "Selected media",
                     modifier = Modifier
                         .size(200.dp) // You can adjust the size
