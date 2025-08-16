@@ -1,0 +1,39 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Ignore IntelliJ project files
+.idea/
+
+# Ignore NDK build folders
+obj/
+*.cxx/
+
+# Ignore APK, AP_ and other build outputs
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.war
+*.ear
+*.so
+*.log
+*.hprof
+
+# Ignore keystore files
+*.jks
+
+# Ignore
