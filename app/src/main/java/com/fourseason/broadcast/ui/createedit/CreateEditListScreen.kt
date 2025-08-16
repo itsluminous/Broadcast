@@ -30,7 +30,7 @@ fun CreateEditListScreen(
     onSave: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var emoji by remember { mutableStateOf("❤️") } // Default emoji
+    val emoji = "📢" // Default emoji
 
     val listDetails by viewModel.listDetails.collectAsState()
 
@@ -44,7 +44,7 @@ fun CreateEditListScreen(
         listDetails?.let {
             if (it.id == listIdToEdit) { // Ensure details loaded are for the current listIdToEdit
                 name = it.name
-                emoji = it.iconEmoji
+                // emoji is now fixed, no need to update from listDetails
             }
         }
     }
@@ -66,18 +66,12 @@ fun CreateEditListScreen(
                 label = { Text("List Name") },
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = emoji,
-                onValueChange = { emoji = it }, // Consider an emoji picker for better UX
-                label = { Text("Emoji Icon") },
-                modifier = Modifier.fillMaxWidth()
-            )
             Button(
                 onClick = {
                     viewModel.saveList(name, emoji, contacts, listIdToEdit)
                     onSave()
                 },
-                enabled = name.isNotBlank() && emoji.isNotBlank() && contacts.isNotEmpty()
+                enabled = name.isNotBlank() && contacts.isNotEmpty()
             ) {
                 Text(if (listIdToEdit != null) "Save Changes" else "Create List")
             }
