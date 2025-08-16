@@ -1,6 +1,7 @@
 package com.fourseason.broadcast.ui.main
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -21,16 +23,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.fourseason.broadcast.data.BroadcastListWithContacts
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
     viewModel: BroadcastListViewModel,
@@ -39,6 +46,8 @@ fun MainScreen(
     onComposeMessage: () -> Unit
 ) {
     val lists by viewModel.broadcastLists.collectAsState()
+    var showDialog by remember { mutableStateOf<BroadcastListWithContacts?>(null) }
+    val haptic = LocalHapticFeedback.current
 
     Scaffold(
         topBar = {
@@ -64,21 +73,56 @@ fun MainScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(lists) { list ->
-                BroadcastListItem(list = list, onClick = { onSelectList(list.broadcastList.id) })
+                BroadcastListItem(
+                    list = list,
+                    onClick = { onSelectList(list.broadcastList.id) },
+                    onLongClick = {
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                        showDialog = list
+                    }
+                )
             }
+        }
+
+        showDialog?.let { listToDelete ->
+            AlertDialog(
+                onDismissRequest = { showDialog = null },
+                title = { Text("Delete List") },
+                text = { Text("Are you sure you want to delete \"${listToDelete.broadcastList.name}\"?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteList(listToDelete.broadcastList.id) // Ensure this method exists in your ViewModel
+                            showDialog = null
+                        }
+                    ) {
+                        Text("Confirm")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDialog = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BroadcastListItem(
     list: BroadcastListWithContacts,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

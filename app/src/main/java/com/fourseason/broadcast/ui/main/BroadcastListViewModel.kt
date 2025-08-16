@@ -23,4 +23,13 @@ class BroadcastListViewModel(private val repository: BroadcastRepository) : View
     suspend fun getListWithContacts(listId: Long): BroadcastListWithContacts {
         return repository.getBroadcastListWithContacts(listId).first()
     }
+
+    fun deleteList(listId: Long) {
+        viewModelScope.launch {
+            repository.deleteBroadcastListById(listId)
+            // The broadcastLists StateFlow should automatically update
+            // if getAllBroadcastListsWithContacts() returns a Flow that
+            // emits new values when the underlying data changes.
+        }
+    }
 }

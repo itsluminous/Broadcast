@@ -22,4 +22,10 @@ class BroadcastRepository(private val broadcastDao: BroadcastDao) {
     suspend fun updateBroadcastListWithContacts(list: BroadcastList, contacts: List<Contact>) {
         broadcastDao.updateBroadcastListWithContacts(list, contacts)
     }
+
+    suspend fun deleteBroadcastListById(listId: Long) {
+        broadcastDao.deleteBroadcastListById(listId)
+        // Also delete associated cross-references
+        broadcastDao.deleteCrossRefsByListId(listId)
+    }
 }

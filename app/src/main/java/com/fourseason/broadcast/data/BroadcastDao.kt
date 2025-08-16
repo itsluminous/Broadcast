@@ -27,13 +27,16 @@ interface BroadcastDao {
     @Query("SELECT * FROM broadcast_lists WHERE id = :listId")
     fun getBroadcastListWithContacts(listId: Long): Flow<BroadcastListWithContacts>
 
+    @Query("DELETE FROM broadcast_lists WHERE id = :listId")
+    suspend fun deleteBroadcastListById(listId: Long)
+
     @Query("DELETE FROM broadcast_list_contact_cross_refs WHERE listId = :listId")
-    suspend fun deleteContactsForList(listId: Long)
+    suspend fun deleteCrossRefsByListId(listId: Long) // Renamed from deleteContactsForList
 
     @Transaction
     suspend fun updateBroadcastListWithContacts(list: BroadcastList, contacts: List<Contact>) {
         insertContacts(contacts)
-        deleteContactsForList(list.id)
+        deleteCrossRefsByListId(list.id) // Updated to use renamed method
         val crossRefs = contacts.map { BroadcastListContactCrossRef(list.id, it.phoneNumber) }
         insertBroadcastListContactCrossRefs(crossRefs)
     }
