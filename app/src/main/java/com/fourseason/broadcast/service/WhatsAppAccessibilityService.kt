@@ -42,7 +42,6 @@ class WhatsAppAccessibilityService : AccessibilityService() {
 
     companion object {
         fun startSendQueue(context: Context, numbers: List<String>, message: String, mediaUri: Uri?) {
-            Toast.makeText(context, "Processing numbers: ${numbers.joinToString(", ")}", Toast.LENGTH_LONG).show()
             val intent = Intent(context, WhatsAppAccessibilityService::class.java).apply {
                 action = "ACTION_SEND_BULK"
                 putStringArrayListExtra("EXTRA_PHONE_NUMBERS", ArrayList(numbers))
@@ -87,12 +86,10 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         currentPhoneNumber = phoneNumbersQueue.removeAt(0)
         val phoneNumber = currentPhoneNumber ?: return
         
-        showToast("Processing: $phoneNumber")
         currentState = State.AWAITING_UI
 
         contactTimeoutRunnable = Runnable {
             if (currentState == State.AWAITING_UI) {
-                showToast("Failed: Contact not found for $phoneNumber")
                 performGlobalAction(GLOBAL_ACTION_BACK)
                 Handler(Looper.getMainLooper()).postDelayed({ processNextMessage() }, 1000)
             }
@@ -104,7 +101,6 @@ class WhatsAppAccessibilityService : AccessibilityService() {
             startActivity(intentToLaunch)
         } catch (e: Exception) {
             contactTimeoutRunnable?.let { timeoutHandler.removeCallbacks(it) }
-            showToast("Error opening WhatsApp for $phoneNumber")
             Handler(Looper.getMainLooper()).postDelayed({ processNextMessage() }, 1000)
         }
     }
@@ -120,22 +116,18 @@ class WhatsAppAccessibilityService : AccessibilityService() {
                     return // Popup handled, wait for next message
                 }
                 if (isMediaPreviewScreen(rootNode)) {
-                    showToast("Sending media...")
                     findAndClickNodeById(rootNode, MEDIA_PREVIEW_SEND_BUTTON_ID)
                     currentState = State.ON_MEDIA_PREVIEW
                 } else if (isChatScreen(rootNode)) {
-                    showToast("Sending message...")
                     findAndClickNodeById(rootNode, CHAT_SEND_BUTTON_ID)
                     currentState = State.ON_CHAT_SCREEN
                 } else if (isContactPickerScreen(rootNode)) {
-                    showToast("Verifying contact...")
                     findAndClickNodeById(rootNode, CONTACT_PICKER_SEND_FAB_ID)
                 }
             }
             State.ON_MEDIA_PREVIEW, State.ON_CHAT_SCREEN -> {
                 // After sending, we land on the chat screen. Wait for the send button to disappear.
                 if (isChatScreen(rootNode) && !isSendButtonPresent(rootNode)) {
-                    showToast("Success! Navigating back...")
                     pressBackButton(rootNode)
                     currentState = State.AWAITING_HOME
                 }
@@ -199,7 +191,6 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         if (cancelButtons.isNotEmpty()) {
             for (button in cancelButtons) {
                 if (button.className == "android.widget.Button" && button.isClickable) {
-                    showToast("Contact not on WhatsApp. Clicking Cancel.")
                     button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                     button.recycle()
                     // After clicking cancel, we should go back to processing the next message.
@@ -255,7 +246,6 @@ class WhatsAppAccessibilityService : AccessibilityService() {
                     AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         })
-        showToast("WhatsApp Accessibility Service Connected")
     }
     
     private fun stopSelfIfIdle() {

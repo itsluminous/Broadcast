@@ -85,9 +85,5 @@ object WhatsAppHelper {
             message,
             mediaUri
         )
-        
-        // Indicate that the process has started.
-        // The Accessibility Service will provide more specific feedback (Toast messages).
-        Toast.makeText(context, "Starting bulk message process...", Toast.LENGTH_SHORT).show()
     }
 }
