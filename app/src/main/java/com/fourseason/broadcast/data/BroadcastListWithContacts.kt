@@ -7,9 +7,13 @@ import androidx.room.Relation
 data class BroadcastListWithContacts(
     @Embedded val broadcastList: BroadcastList,
     @Relation(
-        parentColumn = "id",
-        entityColumn = "phoneNumber",
-        associateBy = Junction(BroadcastListContactCrossRef::class)
+        parentColumn = "id", // PK of BroadcastList
+        entityColumn = "phoneNumber", // PK of Contact
+        associateBy = Junction(
+            value = BroadcastListContactCrossRef::class,
+            parentColumn = "listId", // FK in BroadcastListContactCrossRef pointing to BroadcastList
+            entityColumn = "contactPhoneNumber" // FK in BroadcastListContactCrossRef pointing to Contact
+        )
     )
-    val contacts: List<Contact>
+    val contacts: List<Contact> = emptyList()
 )
