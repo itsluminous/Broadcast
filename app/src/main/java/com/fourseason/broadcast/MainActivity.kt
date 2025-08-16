@@ -89,6 +89,13 @@ fun AppNavigation(
     val context = LocalContext.current
     var showSettingsRedirectDialog by remember { mutableStateOf(false) }
 
+    // Check for Accessibility Service on startup
+    LaunchedEffect(Unit) {
+        if (!WhatsAppHelper.isAccessibilityServiceEnabled(context)) {
+            WhatsAppHelper.requestAccessibilityPermission(context)
+        }
+    }
+
     // If shared data is present, navigate to ComposeMessageScreen and populate the ViewModel
     LaunchedEffect(sharedText, sharedMediaUri) {
         if (sharedText != null || sharedMediaUri != null) {

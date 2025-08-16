@@ -49,7 +49,7 @@ object WhatsAppHelper {
     }
 
     fun requestAccessibilityPermission(context: Context) {
-        Toast.makeText(context, "Please enable the Broadcast Automation service.", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Please enable the Accessibility Service for Broadcast.", Toast.LENGTH_LONG).show()
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Needed if called from non-Activity context
         context.startActivity(intent)
