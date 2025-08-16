@@ -116,6 +116,9 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         when (currentState) {
             State.AWAITING_UI -> {
                 contactTimeoutRunnable?.let { timeoutHandler.removeCallbacks(it) }
+                if (handleInvitePopup(rootNode)) {
+                    return // Popup handled, wait for next message
+                }
                 if (isMediaPreviewScreen(rootNode)) {
                     showToast("Sending media...")
                     findAndClickNodeById(rootNode, MEDIA_PREVIEW_SEND_BUTTON_ID)
@@ -189,6 +192,25 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         }
         nodes.forEach { it?.recycle() }
         return found
+    }
+
+    private fun handleInvitePopup(node: AccessibilityNodeInfo): Boolean {
+        val cancelButtons = node.findAccessibilityNodeInfosByText("Cancel")
+        if (cancelButtons.isNotEmpty()) {
+            for (button in cancelButtons) {
+                if (button.className == "android.widget.Button" && button.isClickable) {
+                    showToast("Contact not on WhatsApp. Clicking Cancel.")
+                    button.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    button.recycle()
+                    // After clicking cancel, we should go back to processing the next message.
+                    Handler(Looper.getMainLooper()).postDelayed({ processNextMessage() }, 1000)
+                    return true
+                }
+                button.recycle()
+            }
+        }
+        cancelButtons.forEach { it.recycle() }
+        return false
     }
 
     private fun createIntentForContact(phoneNumber: String): Intent {
