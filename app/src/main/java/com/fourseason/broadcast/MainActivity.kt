@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -47,6 +48,7 @@ import com.fourseason.broadcast.data.BroadcastRepository
 import com.fourseason.broadcast.ui.TemporaryDataHolder
 import com.fourseason.broadcast.ui.ViewModelFactory
 import com.fourseason.broadcast.ui.compose.ComposeMessageScreen
+import com.fourseason.broadcast.ui.compose.ComposeMessageViewModel
 import com.fourseason.broadcast.ui.contactpicker.ContactPickerScreen
 import com.fourseason.broadcast.ui.createedit.CreateEditListScreen
 import com.fourseason.broadcast.ui.main.BroadcastListViewModel
@@ -63,27 +65,43 @@ class MainActivity : ComponentActivity() {
         val repository = BroadcastRepository(database.broadcastDao())
         val factory = ViewModelFactory(repository, application)
 
+        // Handle incoming share intent
+        val sharedText = intent?.getStringExtra(Intent.EXTRA_TEXT)
+        val sharedMediaUri = intent?.clipData?.getItemAt(0)?.uri
+
         setContent {
             BroadcastTheme {
-                AppNavigation(factory = factory)
+                AppNavigation(factory = factory, sharedText = sharedText, sharedMediaUri = sharedMediaUri)
             }
         }
     }
 }
 
 @Composable
-fun AppNavigation(factory: ViewModelFactory) {
+fun AppNavigation(
+    factory: ViewModelFactory,
+    sharedText: String? = null,
+    sharedMediaUri: Uri? = null
+) {
     val navController = rememberNavController()
     val mainViewModel: BroadcastListViewModel = viewModel(factory = factory)
+    val composeMessageViewModel: ComposeMessageViewModel = viewModel(factory = factory)
     val context = LocalContext.current
     var showSettingsRedirectDialog by remember { mutableStateOf(false) }
+
+    // If shared data is present, navigate to ComposeMessageScreen and populate the ViewModel
+    LaunchedEffect(sharedText, sharedMediaUri) {
+        if (sharedText != null || sharedMediaUri != null) {
+            composeMessageViewModel.onMessageChange(sharedText ?: "")
+            composeMessageViewModel.onMediaSelected(sharedMediaUri)
+            navController.navigate("compose_message") // Navigate to the general compose_message route
+        }
+    }
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            // Check if we are navigating for creation or editing
-            // For now, let's assume new list creation goes to contact_picker without listId
             navController.navigate("contact_picker")
         } else {
             val activity = context as? Activity
@@ -116,7 +134,6 @@ fun AppNavigation(factory: ViewModelFactory) {
                 ListOptionsDialog(
                     onDismiss = { showListOptionsDialog = null },
                     onEdit = {
-                        // Navigate to contact_picker with listId for editing
                         navController.navigate("contact_picker?listId=$showListOptionsDialog")
                     },
                     onSend = {
@@ -134,7 +151,7 @@ fun AppNavigation(factory: ViewModelFactory) {
                         Manifest.permission.READ_CONTACTS
                     )) {
                         PackageManager.PERMISSION_GRANTED -> {
-                            navController.navigate("contact_picker") // For new list, no listId
+                            navController.navigate("contact_picker")
                         }
                         else -> {
                             requestPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
@@ -148,7 +165,7 @@ fun AppNavigation(factory: ViewModelFactory) {
             route = "contact_picker?listId={listId}",
             arguments = listOf(navArgument("listId") {
                 type = NavType.LongType
-                defaultValue = -1L // Indicates new list creation
+                defaultValue = -1L
             })
         ) { backStackEntry ->
             val listId = backStackEntry.arguments?.getLong("listId")
@@ -171,7 +188,7 @@ fun AppNavigation(factory: ViewModelFactory) {
             route = "create_edit_list?listId={listId}",
             arguments = listOf(navArgument("listId") {
                 type = NavType.LongType
-                defaultValue = -1L // Indicates new list creation
+                defaultValue = -1L
             })
         ) { backStackEntry ->
             val listId = backStackEntry.arguments?.getLong("listId")
@@ -196,7 +213,7 @@ fun AppNavigation(factory: ViewModelFactory) {
             }
 
             ComposeMessageScreen(
-                viewModel = viewModel(factory = factory),
+                viewModel = composeMessageViewModel, // Use the shared ViewModel instance
                 onSend = { message, uri ->
                     val phoneNumbers = listWithContacts?.contacts?.map { it.phoneNumber } ?: emptyList()
                     WhatsAppHelper.sendMessage(navController.context, message, uri, phoneNumbers)
@@ -213,7 +230,7 @@ fun AppNavigation(factory: ViewModelFactory) {
                 BroadcastListPicker(
                     viewModel = mainViewModel,
                     onDismiss = { showListPicker = false },
-                    onConfirm = { lists -> // lists is List<BroadcastListWithContacts>
+                    onConfirm = { lists ->
                         val phoneNumbers = lists.flatMap { it.contacts }.map { it.phoneNumber }.distinct()
                         WhatsAppHelper.sendMessage(navController.context, messageToSend, uriToSend, phoneNumbers)
                         showListPicker = false
@@ -223,7 +240,7 @@ fun AppNavigation(factory: ViewModelFactory) {
             }
 
             ComposeMessageScreen(
-                viewModel = viewModel(factory = factory),
+                viewModel = composeMessageViewModel, // Use the shared ViewModel instance
                 onSend = { message, uri ->
                     messageToSend = message
                     uriToSend = uri
@@ -239,7 +256,7 @@ fun SettingsRedirectDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Permission Required") },
-        text = { Text("The app needs access to your contacts to create broadcast lists. Since the permission was previously denied with 'Don't ask again', you need to enable it manually in the app settings.") },
+        text = { Text("The app needs access to your contacts to create broadcast lists. Since the permission was previously denied with 'Don\'t ask again', you need to enable it manually in the app settings.") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text("Open Settings")
@@ -290,7 +307,7 @@ fun BroadcastListPicker(
         title = { Text("Select Lists") },
         text = {
             LazyColumn {
-                items(lists) { list -> // list is BroadcastListWithContacts
+                items(lists) { list ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
