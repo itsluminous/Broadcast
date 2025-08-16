@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Broadcast</string>
+    <string name="accessibility_service_label">Broadcast Automation</string>
+    <string name="accessibility_service_description">This service helps automate sending messages via WhatsApp.</string>
 </resources>
