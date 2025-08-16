@@ -2,7 +2,8 @@ package com.fourseason.broadcast.ui.compose
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,7 +30,7 @@ fun ComposeMessageScreen(
     val mediaUri by viewModel.mediaUri.collectAsState()
 
     val pickMediaLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = PickVisualMedia()
     ) { uri: Uri? ->
         viewModel.onMediaSelected(uri)
     }
@@ -53,7 +54,7 @@ fun ComposeMessageScreen(
                     .fillMaxWidth()
                     .weight(1f)
             )
-            Button(onClick = { pickMediaLauncher.launch("image/*,video/*") }) {
+            Button(onClick = { pickMediaLauncher.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) }) {
                 Text(if (mediaUri == null) "Add Image/Video" else "Change Image/Video")
             }
             Button(
