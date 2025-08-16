@@ -20,7 +20,7 @@ class ViewModelFactory(
         }
         if (modelClass.isAssignableFrom(ContactPickerViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ContactPickerViewModel(application) as T
+            return ContactPickerViewModel(application, repository) as T
         }
         if (modelClass.isAssignableFrom(CreateEditListViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")

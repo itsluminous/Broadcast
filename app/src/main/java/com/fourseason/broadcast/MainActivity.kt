@@ -1,12 +1,12 @@
 package com.fourseason.broadcast
 
 import android.Manifest
-import android.app.Activity 
-import android.content.Intent 
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings 
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -33,7 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat 
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -82,16 +82,15 @@ fun AppNavigation(factory: ViewModelFactory) {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
+            // Check if we are navigating for creation or editing
+            // For now, let's assume new list creation goes to contact_picker without listId
             navController.navigate("contact_picker")
         } else {
             val activity = context as? Activity
             if (activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_CONTACTS)) {
-                // User has selected "Don't ask again" or the permission is globally disabled by policy.
-                // Show the dialog explaining why we need to go to settings.
                 showSettingsRedirectDialog = true
             } else {
-                // User denied the permission, but did not select "Don't ask again".
-                // Optionally, show a message explaining why the permission is needed (e.g., using a Snackbar).
+                // User denied the permission
             }
         }
     }
@@ -116,7 +115,10 @@ fun AppNavigation(factory: ViewModelFactory) {
             if (showListOptionsDialog != null) {
                 ListOptionsDialog(
                     onDismiss = { showListOptionsDialog = null },
-                    onEdit = { /* TODO */ },
+                    onEdit = {
+                        // Navigate to contact_picker with listId for editing
+                        navController.navigate("contact_picker?listId=$showListOptionsDialog")
+                    },
                     onSend = {
                         navController.navigate("compose_message/$showListOptionsDialog")
                     }
@@ -132,11 +134,9 @@ fun AppNavigation(factory: ViewModelFactory) {
                         Manifest.permission.READ_CONTACTS
                     )) {
                         PackageManager.PERMISSION_GRANTED -> {
-                            navController.navigate("contact_picker")
+                            navController.navigate("contact_picker") // For new list, no listId
                         }
-                        else -> { // Permission is not granted
-                            // Always attempt to request the permission if not granted.
-                            // The launcher's callback will handle the "Don't ask again" scenario.
+                        else -> {
                             requestPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
                         }
                     }
@@ -144,19 +144,41 @@ fun AppNavigation(factory: ViewModelFactory) {
                 onComposeMessage = { navController.navigate("compose_message") }
             )
         }
-        composable("contact_picker") {
+        composable(
+            route = "contact_picker?listId={listId}",
+            arguments = listOf(navArgument("listId") {
+                type = NavType.LongType
+                defaultValue = -1L // Indicates new list creation
+            })
+        ) { backStackEntry ->
+            val listId = backStackEntry.arguments?.getLong("listId")
             ContactPickerScreen(
                 viewModel = viewModel(factory = factory),
+                listIdToEdit = if (listId == -1L) null else listId,
                 onContactsSelected = { contacts ->
                     TemporaryDataHolder.selectedContacts = contacts
-                    navController.navigate("create_edit_list")
+                    TemporaryDataHolder.editingListId = if (listId == -1L) null else listId
+                    val route = if (listId != null && listId != -1L) {
+                        "create_edit_list?listId=$listId"
+                    } else {
+                        "create_edit_list"
+                    }
+                    navController.navigate(route)
                 }
             )
         }
-        composable("create_edit_list") {
+        composable(
+            route = "create_edit_list?listId={listId}",
+            arguments = listOf(navArgument("listId") {
+                type = NavType.LongType
+                defaultValue = -1L // Indicates new list creation
+            })
+        ) { backStackEntry ->
+            val listId = backStackEntry.arguments?.getLong("listId")
             CreateEditListScreen(
                 viewModel = viewModel(factory = factory),
                 contacts = TemporaryDataHolder.selectedContacts,
+                listIdToEdit = if (listId == -1L) null else listId,
                 onSave = { navController.popBackStack("main", inclusive = false) }
             )
         }
@@ -217,7 +239,7 @@ fun SettingsRedirectDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Permission Required") },
-        text = { Text("The app needs access to your contacts to create broadcast lists. Since the permission was previously denied with \'Don\'t ask again\', you need to enable it manually in the app settings.") },
+        text = { Text("The app needs access to your contacts to create broadcast lists. Since the permission was previously denied with 'Don't ask again', you need to enable it manually in the app settings.") },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text("Open Settings")

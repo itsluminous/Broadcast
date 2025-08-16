@@ -11,6 +11,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,14 +26,32 @@ import com.fourseason.broadcast.data.Contact
 fun CreateEditListScreen(
     viewModel: CreateEditListViewModel,
     contacts: List<Contact>,
+    listIdToEdit: Long?,
     onSave: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
-    var emoji by remember { mutableStateOf("❤️") }
+    var emoji by remember { mutableStateOf("❤️") } // Default emoji
+
+    val listDetails by viewModel.listDetails.collectAsState()
+
+    LaunchedEffect(listIdToEdit) {
+        if (listIdToEdit != null) {
+            viewModel.loadListDetails(listIdToEdit)
+        }
+    }
+
+    LaunchedEffect(listDetails) {
+        listDetails?.let {
+            if (it.id == listIdToEdit) { // Ensure details loaded are for the current listIdToEdit
+                name = it.name
+                emoji = it.iconEmoji
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Create List") })
+            TopAppBar(title = { Text(if (listIdToEdit != null) "Edit List" else "Create List") })
         }
     ) { paddingValues ->
         Column(
@@ -46,21 +66,20 @@ fun CreateEditListScreen(
                 label = { Text("List Name") },
                 modifier = Modifier.fillMaxWidth()
             )
-            // A real emoji picker would be more complex. Using a simple text field for now.
             OutlinedTextField(
                 value = emoji,
-                onValueChange = { emoji = it },
+                onValueChange = { emoji = it }, // Consider an emoji picker for better UX
                 label = { Text("Emoji Icon") },
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
                 onClick = {
-                    viewModel.saveList(name, emoji, contacts)
+                    viewModel.saveList(name, emoji, contacts, listIdToEdit)
                     onSave()
                 },
-                enabled = name.isNotBlank() && emoji.isNotBlank()
+                enabled = name.isNotBlank() && emoji.isNotBlank() && contacts.isNotEmpty()
             ) {
-                Text("Save")
+                Text(if (listIdToEdit != null) "Save Changes" else "Create List")
             }
         }
     }

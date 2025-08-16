@@ -34,22 +34,38 @@ import com.google.accompanist.permissions.rememberPermissionState
 @Composable
 fun ContactPickerScreen(
     viewModel: ContactPickerViewModel,
+    listIdToEdit: Long?,
     onContactsSelected: (List<Contact>) -> Unit
 ) {
     val contactsPermissionState = rememberPermissionState(android.Manifest.permission.READ_CONTACTS)
-    val contacts by viewModel.contacts.collectAsState() // This should be updated to hold filtered contacts based on search query
+    val allContacts by viewModel.contacts.collectAsState()
     var selectedContacts by remember { mutableStateOf<Set<Contact>>(emptySet()) }
     var searchQuery by remember { mutableStateOf("") }
+    val preSelectedContacts by viewModel.selectedContactsForEdit.collectAsState()
 
     LaunchedEffect(contactsPermissionState.status) {
         if (contactsPermissionState.status.isGranted) {
-            viewModel.loadContacts()
+            if (listIdToEdit != null) {
+                viewModel.loadContactsForEdit(listIdToEdit)
+            } else {
+                viewModel.loadContacts() // Load all contacts if not editing
+            }
+        } else {
+            // Request permission if not granted. If coming for edit, this means permission was revoked.
+            contactsPermissionState.launchPermissionRequest()
+        }
+    }
+
+    // Initialize selectedContacts once preSelectedContacts are loaded for editing
+    LaunchedEffect(preSelectedContacts, listIdToEdit) {
+        if (listIdToEdit != null && preSelectedContacts.isNotEmpty()) {
+            selectedContacts = preSelectedContacts
         }
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Select Contacts") })
+            TopAppBar(title = { Text(if (listIdToEdit != null) "Edit Contacts" else "Select Contacts") })
         },
         bottomBar = {
             Button(
@@ -67,20 +83,21 @@ fun ContactPickerScreen(
             if (contactsPermissionState.status.isGranted) {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = {
-                        searchQuery = it
-                        // viewModel.searchContacts(it) // You'll need to implement this
-                    },
+                    onValueChange = { searchQuery = it },
                     label = { Text("Search Contacts") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    items(contacts.filter { it.name.contains(searchQuery, ignoreCase = true) || it.phoneNumber.contains(searchQuery) }) { contact -> // Basic filtering, viewModel should handle this
+                    val filteredContacts = allContacts.filter {
+                        it.name.contains(searchQuery, ignoreCase = true) || 
+                        it.phoneNumber.contains(searchQuery)
+                    }.sortedByDescending { selectedContacts.contains(it) } // Show selected contacts on top
+
+                    items(filteredContacts) { contact ->
                         ContactItem(
                             contact = contact,
                             isSelected = selectedContacts.contains(contact),
@@ -95,12 +112,10 @@ fun ContactPickerScreen(
                     }
                 }
             } else {
-                Button(
-                    onClick = { contactsPermissionState.launchPermissionRequest() },
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text("Request Contacts Permission")
-                }
+                // Show a message or a button to request permission if it was denied.
+                // The LaunchedEffect above already tries to request it once.
+                // You might want to add a UI element here if permission is permanently denied.
+                Text("Contacts permission is required to select contacts. Please grant the permission.", modifier = Modifier.padding(16.dp))
             }
         }
     }
