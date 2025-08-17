@@ -12,6 +12,8 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 
+import androidx.core.net.toUri
+
 class WhatsAppAccessibilityService : AccessibilityService() {
 
     private val TAG = "WhatsAppAccessibility"
