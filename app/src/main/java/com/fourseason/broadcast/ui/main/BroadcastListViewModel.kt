@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 class BroadcastListViewModel(private val repository: BroadcastRepository) : ViewModel() {
 
     val broadcastLists: StateFlow<List<BroadcastListWithContacts>> =
-        repository.getAllBroadcastListsWithContacts()
+        repository.getBroadcastListsWithContactsFlow()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),

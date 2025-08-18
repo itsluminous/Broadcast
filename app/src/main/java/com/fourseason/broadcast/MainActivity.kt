@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -28,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -43,8 +46,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.fourseason.broadcast.data.AppDatabase
+import com.fourseason.broadcast.data.BroadcastBackupData
+import com.fourseason.broadcast.data.BroadcastList
+import com.fourseason.broadcast.data.BroadcastListContactCrossRef
 import com.fourseason.broadcast.data.BroadcastListWithContacts
 import com.fourseason.broadcast.data.BroadcastRepository
+import com.fourseason.broadcast.data.Contact
 import com.fourseason.broadcast.ui.TemporaryDataHolder
 import com.fourseason.broadcast.ui.ViewModelFactory
 import com.fourseason.broadcast.ui.compose.ComposeMessageScreen
@@ -55,14 +62,23 @@ import com.fourseason.broadcast.ui.main.BroadcastListViewModel
 import com.fourseason.broadcast.ui.main.MainScreen
 import com.fourseason.broadcast.ui.theme.BroadcastTheme
 import com.fourseason.broadcast.util.WhatsAppHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class MainActivity : ComponentActivity() {
+    private lateinit var repository: BroadcastRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         val database = AppDatabase.getDatabase(applicationContext)
-        val repository = BroadcastRepository(database.broadcastDao())
+        repository = BroadcastRepository(database.broadcastDao())
         val factory = ViewModelFactory(repository, application)
 
         // Handle incoming share intent
@@ -71,7 +87,101 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             BroadcastTheme {
-                AppNavigation(factory = factory, sharedText = sharedText, sharedMediaUri = sharedMediaUri)
+                AppNavigation(
+                    factory = factory,
+                    sharedText = sharedText,
+                    sharedMediaUri = sharedMediaUri,
+                    onBackup = { backupBroadcastLists() },
+                    onImport = { importBroadcastLists() }
+                )
+            }
+        }
+    }
+
+    private fun backupBroadcastLists() {
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "broadcast_backup.json")
+        }
+        createDocumentLauncher.launch(intent)
+    }
+
+    private fun importBroadcastLists() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        openDocumentLauncher.launch(intent)
+    }
+
+    private val createDocumentLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                val scope = (this as? ComponentActivity)?.lifecycleScope ?: return@let
+                scope.launch {
+                    try {
+                        val allLists = repository.getAllBroadcastListsWithContacts()
+                        val backupData = BroadcastBackupData(allLists)
+                        val jsonString = Json.encodeToString(backupData)
+
+                        contentResolver.openOutputStream(uri)?.use { outputStream ->
+                            outputStream.write(jsonString.toByteArray())
+                        }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Backup successful!", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Backup failed: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+
+    private val openDocumentLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                val scope = (this as? ComponentActivity)?.lifecycleScope ?: return@let
+                scope.launch {
+                    try {
+                        val jsonString = contentResolver.openInputStream(uri)?.use { inputStream ->
+                            BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                                reader.readText()
+                            }
+                        }
+
+                        if (jsonString != null) {
+                            val backupData = Json.decodeFromString<BroadcastBackupData>(jsonString)
+                            // Clear existing data and insert imported data
+                            repository.clearAllBroadcastData()
+                            backupData.broadcastLists.forEach { listWithContacts ->
+                                val listId = repository.insertBroadcastList(listWithContacts.broadcastList)
+                                listWithContacts.contacts.forEach { contact ->
+                                    repository.insertContact(contact)
+                                    repository.insertBroadcastListContactCrossRef(
+                                        BroadcastListContactCrossRef(listId, contact.phoneNumber)
+                                    )
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@MainActivity, "Import successful!", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@MainActivity, "Import failed: Empty file", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                        e.printStackTrace()
+                    }
+                }
             }
         }
     }
@@ -81,13 +191,16 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(
     factory: ViewModelFactory,
     sharedText: String? = null,
-    sharedMediaUri: Uri? = null
+    sharedMediaUri: Uri? = null,
+    onBackup: () -> Unit, // New parameter
+    onImport: () -> Unit  // New parameter
 ) {
     val navController = rememberNavController()
     val mainViewModel: BroadcastListViewModel = viewModel(factory = factory)
     val composeMessageViewModel: ComposeMessageViewModel = viewModel(factory = factory)
     val context = LocalContext.current
     var showSettingsRedirectDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope() // Add coroutine scope
 
     // Check for Accessibility Service on startup
     LaunchedEffect(Unit) {
@@ -165,7 +278,9 @@ fun AppNavigation(
                         }
                     }
                 },
-                onComposeMessage = { navController.navigate("compose_message") }
+                onComposeMessage = { navController.navigate("compose_message") },
+                onBackup = onBackup, // Pass the backup lambda
+                onImport = onImport  // Pass the import lambda
             )
         }
         composable(

@@ -8,6 +8,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import kotlin.collections.none
+import kotlin.collections.Iterable
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,7 +76,7 @@ class BroadcastDaoTest {
 
         broadcastDao.deleteBroadcastListById(listId)
 
-        val allLists = broadcastDao.getAllBroadcastListsWithContacts().first()
+        val allLists = broadcastDao.getBroadcastListsWithContactsFlow().first()
         assertTrue(allLists.none { it.broadcastList.id == listId })
     }
 }

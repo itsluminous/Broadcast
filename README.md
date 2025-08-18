@@ -14,6 +14,7 @@ Broadcast is an Android application that simplifies sending WhatsApp messages to
     - **Send to a Single List:** Quickly send a message to a specific broadcast list.
     - **Compose First, Then Send:** Compose your message and then select one or more broadcast lists to send it to.
 - **Share from other apps:** You can share text and media from other apps directly to Broadcast to send them as WhatsApp messages.
+- **Backup and Import Broadcast Lists:** Easily backup all your broadcast lists and contacts to a JSON file, and import them back into the app. This allows for easy migration or data recovery.
 
 ## How It Works
 
