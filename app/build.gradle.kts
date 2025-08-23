@@ -15,16 +15,27 @@ android {
         minSdk = 34
         targetSdk = 34
         versionCode = 1
-        versionName = "0.2"
+        versionName = "0.3"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../broadcast.keystore")
+            storePassword = System.getenv("KEYSTORE_STORE_PASSWORD") ?: project.findProperty("KEYSTORE_STORE_PASSWORD") as String
+            keyAlias = "broadcast_app"
+            keyPassword = System.getenv("KEYSTORE_KEY_PASSWORD") ?: project.findProperty("KEYSTORE_KEY_PASSWORD") as String
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -67,8 +78,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.androidx.room.testing)
 
-    // Accompanist
-    implementation(libs.accompanist.permissions)
+    
 
     // Coil
     implementation(libs.coil.compose)

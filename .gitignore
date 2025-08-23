@@ -35,5 +35,6 @@ obj/
 
 # Ignore keystore files
 *.jks
+*.keystore
 
 # Ignore
