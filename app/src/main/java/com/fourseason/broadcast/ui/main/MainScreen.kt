@@ -115,6 +115,20 @@ fun MainScreen(
                 }
             }
         ) { paddingValues ->
+            if (lists.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Click on the ➕ icon below to create broadcast list",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), // Faded light grey color
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    )
+                }
+            }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
