@@ -26,10 +26,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.fourseason.broadcast.data.Contact
 import com.fourseason.broadcast.utils.hasPermission
+import androidx.compose.foundation.layout.navigationBarsPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,8 +51,8 @@ fun ContactPickerScreen(
         }
     )
     val allContacts by viewModel.contacts.collectAsState()
-    var selectedContacts by remember { mutableStateOf<Set<Contact>>(emptySet()) }
-    var searchQuery by remember { mutableStateOf("") }
+    var selectedContacts by rememberSaveable { mutableStateOf<Set<Contact>>(emptySet()) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val preSelectedContacts by viewModel.selectedContactsForEdit.collectAsState()
 
     LaunchedEffect(hasContactPermission) {
@@ -81,7 +83,8 @@ fun ContactPickerScreen(
                 onClick = { onContactsSelected(selectedContacts.toList()) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .navigationBarsPadding(),
                 enabled = selectedContacts.isNotEmpty()
             ) {
                 Text("Done (${selectedContacts.size})")
