@@ -34,11 +34,11 @@ class CreateEditListViewModel(private val repository: BroadcastRepository) : Vie
                 if (listToUpdate != null) {
                     val updatedList = listToUpdate.copy(name = name, iconEmoji = emoji)
                     repository.updateBroadcastListWithContacts(updatedList, contacts)
+                    loadListDetails(listId) // Reload the list details to reflect the updated name
                 } else {
                     // Handle case where listId is not found, perhaps log an error or inform the user
                 }
             }
-            _listDetails.value = null // Reset after save
         }
     }
 }

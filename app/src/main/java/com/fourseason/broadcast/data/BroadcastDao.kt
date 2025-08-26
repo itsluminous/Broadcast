@@ -25,6 +25,9 @@ interface BroadcastDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBroadcastListContactCrossRefs(crossRefs: List<BroadcastListContactCrossRef>)
 
+    @androidx.room.Update
+    suspend fun updateBroadcastList(broadcastList: BroadcastList)
+
     @Transaction
     @Query("SELECT * FROM broadcast_lists")
     fun getBroadcastListsWithContactsFlow(): Flow<List<BroadcastListWithContacts>>
@@ -45,6 +48,7 @@ interface BroadcastDao {
 
     @Transaction
     suspend fun updateBroadcastListWithContacts(list: BroadcastList, contacts: List<Contact>) {
+        updateBroadcastList(list) // Update the BroadcastList entity itself
         insertContacts(contacts)
         deleteCrossRefsByListId(list.id)
         val crossRefs = contacts.map { BroadcastListContactCrossRef(list.id, it.phoneNumber) }

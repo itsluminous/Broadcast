@@ -40,7 +40,7 @@ fun CreateEditListScreen(
         }
     }
 
-    LaunchedEffect(listDetails) {
+    LaunchedEffect(listDetails?.name) {
         listDetails?.let {
             if (it.id == listIdToEdit) { // Ensure details loaded are for the current listIdToEdit
                 name = it.name

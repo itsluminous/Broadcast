@@ -41,7 +41,7 @@ fun ContactPickerScreen(
     onContactsSelected: (List<Contact>) -> Unit
 ) {
     val context = LocalContext.current
-    var hasContactPermission by remember {
+    var hasContactPermission by rememberSaveable {
         mutableStateOf(context.hasPermission(android.Manifest.permission.READ_CONTACTS))
     }
     val permissionLauncher = rememberLauncherForActivityResult(
