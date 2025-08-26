@@ -29,6 +29,12 @@ import androidx.compose.ui.unit.dp
 import coil.ImageLoader
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.ImageDecoderDecoder
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.Color
 import coil.decode.VideoFrameDecoder
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,17 +82,34 @@ fun ComposeMessageScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             mediaUri?.let { uri ->
-                Image(
-                    painter = rememberAsyncImagePainter(
-                        model = uri,
-                        imageLoader = imageLoader
-                    ),
-                    contentDescription = "Selected media",
+                Box(
                     modifier = Modifier
                         .size(200.dp) // You can adjust the size
-                        .padding(vertical = 8.dp),
-                    contentScale = ContentScale.Fit
-                )
+                        .padding(vertical = 8.dp)
+                ) {
+                    Image(
+                        painter = rememberAsyncImagePainter(
+                            model = uri,
+                            imageLoader = imageLoader
+                        ),
+                        contentDescription = "Selected media",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                    IconButton(
+                        onClick = { viewModel.onMediaSelected(null) },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Remove media",
+                            tint = Color.White
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = { pickMediaLauncher.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) }) {
