@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
+import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,20 +37,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.graphics.Color
 import coil.decode.VideoFrameDecoder
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComposeMessageScreen(
     viewModel: ComposeMessageViewModel,
-    onSend: (String, Uri?) -> Unit
+    onSend: (String, List<Uri>) -> Unit
 ) {
     val message by viewModel.message.collectAsState()
-    val mediaUri by viewModel.mediaUri.collectAsState()
+    val mediaUris by viewModel.mediaUris.collectAsState()
 
     val pickMediaLauncher = rememberLauncherForActivityResult(
-        contract = PickVisualMedia()
-    ) { uri: Uri? ->
-        viewModel.onMediaSelected(uri)
+        contract = PickMultipleVisualMedia(maxItems = 10)
+    ) { uris: List<Uri> ->
+        viewModel.onMediaSelected(uris)
     }
 
     val context = LocalContext.current
@@ -81,44 +86,55 @@ fun ComposeMessageScreen(
                     .weight(1f)
             )
             Spacer(modifier = Modifier.height(8.dp))
-            mediaUri?.let { uri ->
-                Box(
+            if (mediaUris.isNotEmpty()) {
+                LazyRow(
                     modifier = Modifier
-                        .size(200.dp) // You can adjust the size
+                        .fillMaxWidth()
                         .padding(vertical = 8.dp)
                 ) {
-                    Image(
-                        painter = rememberAsyncImagePainter(
-                            model = uri,
-                            imageLoader = imageLoader
-                        ),
-                        contentDescription = "Selected media",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                    IconButton(
-                        onClick = { viewModel.onMediaSelected(null) },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Remove media",
-                            tint = Color.White
-                        )
+                    items(mediaUris) { uri ->
+                        Card(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .padding(4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Image(
+                                    painter = rememberAsyncImagePainter(
+                                        model = uri,
+                                        imageLoader = imageLoader
+                                    ),
+                                    contentDescription = "Selected media thumbnail",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                                IconButton(
+                                    onClick = { viewModel.removeMedia(uri) },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(2.dp)
+                                        .size(20.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove media",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = { pickMediaLauncher.launch(PickVisualMediaRequest(PickVisualMedia.ImageAndVideo)) }) {
-                Text(if (mediaUri == null) "Add Image/Video" else "Change Image/Video")
+                Text(if (mediaUris.isEmpty()) "Add Image/Video" else "Add More Image/Video")
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = { onSend(message, mediaUri) },
-                enabled = message.isNotBlank() || mediaUri != null // Enable if message or media is present
+                onClick = { onSend(message, mediaUris) },
+                enabled = message.isNotBlank() || mediaUris.isNotEmpty() // Enable if message or media is present
             ) {
                 Text("Send")
             }

@@ -31,7 +31,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
     // --- Queue Management ---
     private var phoneNumbersQueue: MutableList<String> = mutableListOf()
     private var messageToSend: String? = null
-    private var mediaUriString: String? = null
+    private var mediaUrisList: ArrayList<Uri> = ArrayList()
     private var isProcessingQueue: Boolean = false
     private var currentPhoneNumber: String? = null
 
@@ -41,12 +41,14 @@ class WhatsAppAccessibilityService : AccessibilityService() {
     private val CONTACT_OPEN_TIMEOUT_MS = 7000L
 
     companion object {
-        fun startSendQueue(context: Context, numbers: List<String>, message: String, mediaUri: Uri?) {
+        fun startSendQueue(context: Context, numbers: List<String>, message: String, mediaUris: List<Uri>) {
             val intent = Intent(context, WhatsAppAccessibilityService::class.java).apply {
                 action = "ACTION_SEND_BULK"
                 putStringArrayListExtra("EXTRA_PHONE_NUMBERS", ArrayList(numbers))
                 putExtra("EXTRA_MESSAGE", message)
-                mediaUri?.let { putExtra("EXTRA_MEDIA_URI", it.toString()) }
+                if (mediaUris.isNotEmpty()) {
+                    putParcelableArrayListExtra("EXTRA_MEDIA_URIS", ArrayList(mediaUris))
+                }
             }
             context.startService(intent)
         }
@@ -56,13 +58,13 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         if (intent?.action == "ACTION_SEND_BULK") {
             val numbers = intent.getStringArrayListExtra("EXTRA_PHONE_NUMBERS")
             val message = intent.getStringExtra("EXTRA_MESSAGE")
-            val mediaUri = intent.getStringExtra("EXTRA_MEDIA_URI")
+            val mediaUris = intent.getParcelableArrayListExtra<Uri>("EXTRA_MEDIA_URIS")
 
             if (numbers != null && message != null) {
                 phoneNumbersQueue.clear()
                 phoneNumbersQueue.addAll(numbers)
                 messageToSend = message
-                mediaUriString = mediaUri
+                mediaUrisList = mediaUris ?: ArrayList()
                 if (!isProcessingQueue) {
                     isProcessingQueue = true
                     processNextMessage()
@@ -206,14 +208,13 @@ class WhatsAppAccessibilityService : AccessibilityService() {
 
     private fun createIntentForContact(phoneNumber: String): Intent {
         val fullMessage = messageToSend ?: ""
-        return if (mediaUriString != null) {
-            Intent(Intent.ACTION_SEND).apply {
+        return if (mediaUrisList.isNotEmpty()) {
+            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
                 setPackage(WHATSAPP_PACKAGE_NAME)
                 putExtra(Intent.EXTRA_TEXT, fullMessage)
                 putExtra("jid", "${phoneNumber.replace("+", "")}@s.whatsapp.net")
-                val mediaU = Uri.parse(mediaUriString)
-                putExtra(Intent.EXTRA_STREAM, mediaU)
-                type = contentResolver.getType(mediaU) ?: "*/*"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, mediaUrisList)
+                type = "image/*" // Or video/*, or */* if mixed. For now, use image/*
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         } else {

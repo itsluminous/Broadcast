@@ -56,7 +56,7 @@ object WhatsAppHelper {
     }
 
 
-    fun sendMessage(context: Context, message: String, mediaUri: Uri?, phoneNumbers: List<String>) {
+    fun sendMessage(context: Context, message: String, mediaUris: List<Uri>, phoneNumbers: List<String>) {
         if (!isAccessibilityServiceEnabled(context)) {
             requestAccessibilityPermission(context)
             return
@@ -83,7 +83,7 @@ object WhatsAppHelper {
             context,
             normalizedAndDeduplicatedNumbers,
             message,
-            mediaUri
+            mediaUris
         )
     }
 }

@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                 AppNavigation(
                     factory = factory,
                     sharedText = sharedText,
-                    sharedMediaUri = sharedMediaUri,
+                    sharedMediaUris = if (sharedMediaUri != null) listOf(sharedMediaUri) else emptyList(),
                     onBackup = { backupBroadcastLists() },
                     onImport = { importBroadcastLists() }
                 )
@@ -191,7 +191,7 @@ class MainActivity : ComponentActivity() {
 fun AppNavigation(
     factory: ViewModelFactory,
     sharedText: String? = null,
-    sharedMediaUri: Uri? = null,
+    sharedMediaUris: List<Uri> = emptyList(),
     onBackup: () -> Unit, // New parameter
     onImport: () -> Unit  // New parameter
 ) {
@@ -210,10 +210,10 @@ fun AppNavigation(
     }
 
     // If shared data is present, navigate to ComposeMessageScreen and populate the ViewModel
-    LaunchedEffect(sharedText, sharedMediaUri) {
-        if (sharedText != null || sharedMediaUri != null) {
+    LaunchedEffect(sharedText, sharedMediaUris) {
+        if (sharedText != null || sharedMediaUris.isNotEmpty()) {
             composeMessageViewModel.onMessageChange(sharedText ?: "")
-            composeMessageViewModel.onMediaSelected(sharedMediaUri)
+            composeMessageViewModel.onMediaSelected(sharedMediaUris)
             navController.navigate("compose_message") // Navigate to the general compose_message route
         }
     }
@@ -336,9 +336,9 @@ fun AppNavigation(
 
             ComposeMessageScreen(
                 viewModel = composeMessageViewModel, // Use the shared ViewModel instance
-                onSend = { message, uri ->
+                onSend = { message, uris ->
                     val phoneNumbers = listWithContacts?.contacts?.map { it.phoneNumber } ?: emptyList()
-                    WhatsAppHelper.sendMessage(navController.context, message, uri, phoneNumbers)
+                    WhatsAppHelper.sendMessage(navController.context, message, uris, phoneNumbers)
                     navController.popBackStack("main", inclusive = false)
                 }
             )
@@ -346,7 +346,7 @@ fun AppNavigation(
         composable("compose_message") {
             var showListPicker by remember { mutableStateOf(false) }
             var messageToSend by remember { mutableStateOf("") }
-            var uriToSend by remember { mutableStateOf<Uri?>(null) }
+            var urisToSend by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
             if (showListPicker) {
                 BroadcastListPicker(
@@ -354,7 +354,7 @@ fun AppNavigation(
                     onDismiss = { showListPicker = false },
                     onConfirm = { lists ->
                         val phoneNumbers = lists.flatMap { it.contacts }.map { it.phoneNumber }.distinct()
-                        WhatsAppHelper.sendMessage(navController.context, messageToSend, uriToSend, phoneNumbers)
+                        WhatsAppHelper.sendMessage(navController.context, messageToSend, urisToSend, phoneNumbers)
                         showListPicker = false
                         navController.popBackStack("main", inclusive = false)
                     }
@@ -363,9 +363,9 @@ fun AppNavigation(
 
             ComposeMessageScreen(
                 viewModel = composeMessageViewModel, // Use the shared ViewModel instance
-                onSend = { message, uri ->
+                onSend = { message, uris ->
                     messageToSend = message
-                    uriToSend = uri
+                    urisToSend = uris
                     showListPicker = true
                 }
             )
