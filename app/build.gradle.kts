@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.kotlin.serialization)
+    id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
 android {
@@ -15,7 +16,7 @@ android {
         minSdk = 34
         targetSdk = 34
         versionCode = 1
-        versionName = "0.5"
+        versionName = "0.6"
     }
 
     signingConfigs {

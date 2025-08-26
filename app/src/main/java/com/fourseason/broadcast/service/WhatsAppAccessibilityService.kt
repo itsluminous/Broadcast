@@ -7,10 +7,19 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.Parcelable
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
+import kotlinx.parcelize.Parcelize
+
+@Parcelize
+data class MessageTask(
+    val phoneNumber: String,
+    val message: String?,
+    val mediaUris: List<Uri>
+) : Parcelable
 
 class WhatsAppAccessibilityService : AccessibilityService() {
 
@@ -29,11 +38,9 @@ class WhatsAppAccessibilityService : AccessibilityService() {
     private var currentState = State.IDLE
 
     // --- Queue Management ---
-    private var phoneNumbersQueue: MutableList<String> = mutableListOf()
-    private var messageToSend: String? = null
-    private var mediaUrisList: ArrayList<Uri> = ArrayList()
+    private var messageTasksQueue: MutableList<MessageTask> = mutableListOf()
     private var isProcessingQueue: Boolean = false
-    private var currentPhoneNumber: String? = null
+    private var currentMessageTask: MessageTask? = null
 
     // --- Timeout for Contact Not Found ---
     private val timeoutHandler = Handler(Looper.getMainLooper())
@@ -46,9 +53,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
                 action = "ACTION_SEND_BULK"
                 putStringArrayListExtra("EXTRA_PHONE_NUMBERS", ArrayList(numbers))
                 putExtra("EXTRA_MESSAGE", message)
-                if (mediaUris.isNotEmpty()) {
-                    putParcelableArrayListExtra("EXTRA_MEDIA_URIS", ArrayList(mediaUris))
-                }
+                putParcelableArrayListExtra("EXTRA_MEDIA_URIS", ArrayList(mediaUris))
             }
             context.startService(intent)
         }
@@ -61,10 +66,18 @@ class WhatsAppAccessibilityService : AccessibilityService() {
             val mediaUris = intent.getParcelableArrayListExtra<Uri>("EXTRA_MEDIA_URIS")
 
             if (numbers != null && message != null) {
-                phoneNumbersQueue.clear()
-                phoneNumbersQueue.addAll(numbers)
-                messageToSend = message
-                mediaUrisList = mediaUris ?: ArrayList()
+                messageTasksQueue.clear()
+                for (phoneNumber in numbers) {
+                    if (mediaUris != null && mediaUris.size > 1) {
+                        // Send text first, then all images
+                        messageTasksQueue.add(MessageTask(phoneNumber, message, emptyList()))
+                        messageTasksQueue.add(MessageTask(phoneNumber, null, mediaUris))
+                    } else {
+                        // Send text with single/no image
+                        messageTasksQueue.add(MessageTask(phoneNumber, message, mediaUris ?: emptyList()))
+                    }
+                }
+
                 if (!isProcessingQueue) {
                     isProcessingQueue = true
                     processNextMessage()
@@ -77,7 +90,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
     private fun processNextMessage() {
         contactTimeoutRunnable?.let { timeoutHandler.removeCallbacks(it) }
 
-        if (phoneNumbersQueue.isEmpty()) {
+        if (messageTasksQueue.isEmpty()) {
             showToast("All messages processed!")
             isProcessingQueue = false
             currentState = State.IDLE
@@ -85,8 +98,8 @@ class WhatsAppAccessibilityService : AccessibilityService() {
             return
         }
 
-        currentPhoneNumber = phoneNumbersQueue.removeAt(0)
-        val phoneNumber = currentPhoneNumber ?: return
+        currentMessageTask = messageTasksQueue.removeAt(0)
+        val task = currentMessageTask ?: return
         
         currentState = State.AWAITING_UI
 
@@ -98,7 +111,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         }
         timeoutHandler.postDelayed(contactTimeoutRunnable!!, CONTACT_OPEN_TIMEOUT_MS)
 
-        val intentToLaunch = createIntentForContact(phoneNumber)
+        val intentToLaunch = createIntentForContact(task)
         try {
             startActivity(intentToLaunch)
         } catch (e: Exception) {
@@ -206,18 +219,35 @@ class WhatsAppAccessibilityService : AccessibilityService() {
         return false
     }
 
-    private fun createIntentForContact(phoneNumber: String): Intent {
-        val fullMessage = messageToSend ?: ""
-        return if (mediaUrisList.isNotEmpty()) {
-            Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                setPackage(WHATSAPP_PACKAGE_NAME)
-                putExtra(Intent.EXTRA_TEXT, fullMessage)
-                putExtra("jid", "${phoneNumber.replace("+", "")}@s.whatsapp.net")
-                putParcelableArrayListExtra(Intent.EXTRA_STREAM, mediaUrisList)
-                type = "image/*" // Or video/*, or */* if mixed. For now, use image/*
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    private fun createIntentForContact(task: MessageTask): Intent {
+        val phoneNumber = task.phoneNumber
+        val message = task.message
+        val mediaUris = task.mediaUris
+
+        return if (mediaUris.isNotEmpty()) {
+            if (mediaUris.size == 1) {
+                // Send single media with text
+                Intent(Intent.ACTION_SEND).apply {
+                    setPackage(WHATSAPP_PACKAGE_NAME)
+                    putExtra(Intent.EXTRA_TEXT, message)
+                    putExtra("jid", "${phoneNumber.replace("+", "")}@s.whatsapp.net")
+                    putExtra(Intent.EXTRA_STREAM, mediaUris[0])
+                    type = contentResolver.getType(mediaUris[0]) ?: "*/*"
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            } else {
+                // Send multiple media (text will be sent separately)
+                Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                    setPackage(WHATSAPP_PACKAGE_NAME)
+                    putExtra("jid", "${phoneNumber.replace("+", "")}@s.whatsapp.net")
+                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(mediaUris))
+                    type = "image/*" // Or video/*, or */* if mixed. For now, use image/*
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
             }
         } else {
+            // Send text only
+            val fullMessage = message ?: ""
             val whatsappUri = Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(fullMessage)}")
             Intent(Intent.ACTION_VIEW, whatsappUri).apply {
                 setPackage(WHATSAPP_PACKAGE_NAME)
@@ -250,7 +280,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
     }
     
     private fun stopSelfIfIdle() {
-        if (!isProcessingQueue && phoneNumbersQueue.isEmpty()) {
+        if (!isProcessingQueue && messageTasksQueue.isEmpty()) {
             stopSelf()
         }
     }
@@ -258,7 +288,7 @@ class WhatsAppAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         isProcessingQueue = false
-        phoneNumbersQueue.clear()
+        messageTasksQueue.clear()
         contactTimeoutRunnable?.let { timeoutHandler.removeCallbacks(it) }
     }
 }
