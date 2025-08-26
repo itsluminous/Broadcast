@@ -14,8 +14,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.fourseason.broadcast.data.BroadcastListWithContacts
 import kotlinx.coroutines.launch
@@ -60,13 +64,14 @@ fun MainScreen(
     val lists by viewModel.broadcastLists.collectAsState()
     var showDialog by remember { mutableStateOf<BroadcastListWithContacts?>(null) }
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(modifier = Modifier.fillMaxWidth(0.7f)) {
                 Spacer(Modifier.padding(top = 16.dp)) // Top padding for the drawer content
                 Text("Broadcast App", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.headlineSmall)
                 Spacer(Modifier.padding(bottom = 16.dp))
@@ -74,6 +79,7 @@ fun MainScreen(
                 NavigationDrawerItem(
                     label = { Text("Backup Broadcast Lists") },
                     selected = false,
+                    icon = { Icon(Icons.Filled.ArrowDownward, contentDescription = "Backup") },
                     onClick = {
                         scope.launch { drawerState.close() }
                         onBackup()
@@ -83,9 +89,21 @@ fun MainScreen(
                 NavigationDrawerItem(
                     label = { Text("Import Broadcast Lists") },
                     selected = false,
+                    icon = { Icon(Icons.Filled.ArrowUpward, contentDescription = "Import") },
                     onClick = {
                         scope.launch { drawerState.close() }
                         onImport()
+                    },
+                    modifier = Modifier.padding(16.dp)
+                )
+                NavigationDrawerItem(
+                    label = { Text("About") },
+                    selected = false,
+                    icon = { Icon(Icons.Filled.Info, contentDescription = "About") },
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/itsluminous/Broadcast"))
+                        context.startActivity(intent)
                     },
                     modifier = Modifier.padding(16.dp)
                 )
