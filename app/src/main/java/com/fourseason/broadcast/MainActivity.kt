@@ -99,10 +99,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun backupBroadcastLists() {
+        val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+        val fileName = "broadcast_$timeStamp.json"
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/json"
-            putExtra(Intent.EXTRA_TITLE, "broadcast_backup.json")
+            putExtra(Intent.EXTRA_TITLE, fileName)
         }
         createDocumentLauncher.launch(intent)
     }
